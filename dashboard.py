@@ -281,14 +281,15 @@ fig_main.add_trace(go.Candlestick(
     name="K線", increasing_line_color="#ef5350", decreasing_line_color="#26a69a",
 ), row=1, col=1)
 if bbu:
-    fig_main.add_trace(go.Scatter(x=df_show.index, y=df_show[bbu], name="BB上軌",
-        line=dict(color="rgba(255,165,0,0.5)", dash="dot")), row=1, col=1)
     fig_main.add_trace(go.Scatter(x=df_show.index, y=df_show[bbl], name="BB下軌",
-        line=dict(color="rgba(255,165,0,0.5)", dash="dot"),
-        fill="tonexty", fillcolor="rgba(255,165,0,0.05)"), row=1, col=1)
+        line=dict(color="rgba(255,165,0,0.4)", dash="dot"),
+        fill=None), row=1, col=1)
+    fig_main.add_trace(go.Scatter(x=df_show.index, y=df_show[bbu], name="BB上軌",
+        line=dict(color="rgba(255,165,0,0.4)", dash="dot"),
+        fill="tonexty", fillcolor="rgba(255,165,0,0.07)"), row=1, col=1)
 if bbm:
     fig_main.add_trace(go.Scatter(x=df_show.index, y=df_show[bbm], name="BB中軌",
-        line=dict(color="rgba(255,165,0,0.8)", dash="dash")), row=1, col=1)
+        line=dict(color="rgba(255,165,0,0.9)", dash="dash")), row=1, col=1)
 for ma_c, clr, lbl in [(ma5, "#ff9800", "MA5"), (ma20, "#2196F3", "MA20"), (ma60, "#9C27B0", "MA60")]:
     if ma_c:
         fig_main.add_trace(go.Scatter(x=df_show.index, y=df_show[ma_c], name=lbl,
