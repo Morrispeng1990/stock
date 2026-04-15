@@ -267,11 +267,11 @@ kd_k      = col(df, "K值(%)", "K值")
 kd_d      = col(df, "D值(%)", "D值")
 
 fig_main = make_subplots(
-    rows=4, cols=1,
+    rows=6, cols=1,
     shared_xaxes=True,
     vertical_spacing=0.02,
-    row_heights=[0.50, 0.15, 0.18, 0.17],
-    specs=[[{}], [{}], [{}], [{"secondary_y": True}]],
+    row_heights=[0.38, 0.12, 0.14, 0.14, 0.12, 0.10],
+    specs=[[{}], [{}], [{}], [{"secondary_y": True}], [{}], [{"secondary_y": True}]],
 )
 
 # ── Row 1: K線 + BB + MA ──
@@ -383,54 +383,55 @@ if rsi_col:
     fig_main.add_hline(y=70, line_dash="dot",  line_color="rgba(239,83,80,0.25)",  row=4, col=1, secondary_y=True)
     fig_main.add_hline(y=30, line_dash="dot",  line_color="rgba(38,166,154,0.25)", row=4, col=1, secondary_y=True)
 
-fig_main.update_yaxes(title_text="價格(元)", row=1, col=1, title_standoff=4)
-fig_main.update_yaxes(title_text="量(張)",   row=2, col=1, title_standoff=4)
-fig_main.update_yaxes(title_text="MACD",     row=3, col=1, title_standoff=4)
-fig_main.update_yaxes(title_text="KD(%)",    row=4, col=1, title_standoff=4)
+# ── Row 5: 三大法人買賣超 ──
+fi_col  = col(df, "外資買賣超(張)",   "外資買賣超")
+it_col  = col(df, "投信買賣超(張)",   "投信買賣超")
+dl_col  = col(df, "自營商買賣超(張)", "自營商買賣超")
+if fi_col or it_col or dl_col:
+    if fi_col:
+        fig_main.add_trace(go.Bar(x=df_show.index, y=df_show[fi_col], name="外資",
+            marker_color="#2196F3", opacity=0.8), row=5, col=1)
+    if it_col:
+        fig_main.add_trace(go.Bar(x=df_show.index, y=df_show[it_col], name="投信",
+            marker_color="#ff9800", opacity=0.8), row=5, col=1)
+    if dl_col:
+        fig_main.add_trace(go.Bar(x=df_show.index, y=df_show[dl_col], name="自營",
+            marker_color="#9C27B0", opacity=0.8), row=5, col=1)
+    fig_main.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.4, row=5, col=1)
+
+# ── Row 6: 融資餘額（主軸）+ 融券餘額（副軸）──
+mb_col  = col(df, "融資餘額(張)", "融資餘額")
+ss_col  = col(df, "融券餘額(張)", "融券餘額")
+if mb_col or ss_col:
+    if mb_col:
+        fig_main.add_trace(go.Scatter(x=df_show.index, y=df_show[mb_col], name="融資餘額",
+            line=dict(color="#ef5350", width=1.8)), row=6, col=1)
+    if ss_col:
+        fig_main.add_trace(go.Scatter(x=df_show.index, y=df_show[ss_col], name="融券餘額",
+            line=dict(color="#26a69a", width=1.8)), row=6, col=1, secondary_y=True)
+
+fig_main.update_yaxes(title_text="價格(元)",   row=1, col=1, title_standoff=4)
+fig_main.update_yaxes(title_text="量(張)",     row=2, col=1, title_standoff=4)
+fig_main.update_yaxes(title_text="MACD",       row=3, col=1, title_standoff=4)
+fig_main.update_yaxes(title_text="KD(%)",      row=4, col=1, title_standoff=4)
 if rsi_col:
     fig_main.update_yaxes(title_text="RSI(%)", secondary_y=True, row=4, col=1, title_standoff=4)
-for r in range(1, 4):
+fig_main.update_yaxes(title_text="法人(張)",   row=5, col=1, title_standoff=4)
+fig_main.update_yaxes(title_text="融資(張)",   row=6, col=1, title_standoff=4)
+if ss_col:
+    fig_main.update_yaxes(title_text="融券(張)", secondary_y=True, row=6, col=1, title_standoff=4)
+for r in range(1, 6):
     fig_main.update_xaxes(showticklabels=False, row=r, col=1)
 fig_main.update_layout(
-    height=860,
+    height=1060,
     xaxis_rangeslider_visible=False,
     margin=dict(t=20, b=20, l=60, r=60),
     legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0,
                 font=dict(size=11)),
     hovermode="x unified",
+    barmode="relative",
 )
 st.plotly_chart(fig_main, use_container_width=True)
-
-# ─────────────────────────────────────────────────────────────
-# 圖5：三大法人 + 融資/融券餘額
-# ─────────────────────────────────────────────────────────────
-st.subheader("🏦 法人買賣超 + 融資融券")
-fi_col  = col(df, "外資買賣超(張)",    "外資買賣超")
-it_col  = col(df, "投信買賣超(張)",    "投信買賣超")
-dl_col  = col(df, "自營商買賣超(張)",  "自營商買賣超")
-mb_col  = col(df, "融資餘額(張)",      "融資餘額")
-ss_col  = col(df, "融券餘額(張)",      "融券餘額")
-
-if fi_col or mb_col:
-    fig5 = make_subplots(rows=1, cols=2,
-        subplot_titles=("三大法人買賣超（張）", "融資餘額 / 融券餘額（張）"))
-    if fi_col:
-        fig5.add_trace(go.Bar(x=df_show.index, y=df_show[fi_col], name="外資",
-            marker_color="#2196F3", opacity=0.8), row=1, col=1)
-    if it_col:
-        fig5.add_trace(go.Bar(x=df_show.index, y=df_show[it_col], name="投信",
-            marker_color="#ff9800", opacity=0.8), row=1, col=1)
-    if dl_col:
-        fig5.add_trace(go.Bar(x=df_show.index, y=df_show[dl_col], name="自營",
-            marker_color="#9C27B0", opacity=0.8), row=1, col=1)
-    if mb_col:
-        fig5.add_trace(go.Scatter(x=df_show.index, y=df_show[mb_col], name="融資餘額",
-            line=dict(color="#ef5350", width=1.8)), row=1, col=2)
-    if ss_col:
-        fig5.add_trace(go.Scatter(x=df_show.index, y=df_show[ss_col], name="融券餘額",
-            line=dict(color="#26a69a", width=1.8)), row=1, col=2)
-    fig5.update_layout(height=300, barmode="relative", margin=dict(t=40, b=20))
-    st.plotly_chart(fig5, use_container_width=True)
 
 # ─────────────────────────────────────────────────────────────
 # 圖6：大戶/散戶持股比（週）
