@@ -76,6 +76,48 @@ def col(df, *names):
             return n
     return None
 
+# ── 訊號工具 ─────────────────────────────────────────────────
+
+_SIGNAL_COLORS = {
+    "多頭": "#26a69a", "金叉": "#26a69a", "買超": "#26a69a", "買進": "#26a69a",
+    "空頭": "#ef5350", "死叉": "#ef5350", "賣超": "#ef5350", "拋售": "#ef5350",
+    "超買": "#e65100",
+    "超賣": "#1565c0",
+}
+
+def _sig_color(tag: str) -> str:
+    for kw, c in _SIGNAL_COLORS.items():
+        if kw in tag:
+            return c
+    return "#607d8b"
+
+def _badges_html(signal_str) -> str:
+    """將 'MACD多頭 | KD金叉 | ...' 轉為彩色 badge HTML"""
+    if not signal_str or pd.isna(signal_str) or str(signal_str).strip() == "":
+        return '<span style="color:#888;font-size:0.85em">（無特別訊號）</span>'
+    tags = [t.strip() for t in str(signal_str).split("|") if t.strip()]
+    parts = []
+    for tag in tags:
+        c = _sig_color(tag)
+        parts.append(
+            f'<span style="background:{c};color:#fff;padding:3px 9px;'
+            f'border-radius:12px;font-size:0.82em;margin:2px 3px;display:inline-block">'
+            f'{tag}</span>'
+        )
+    return "".join(parts)
+
+# 強訊號 → K線垂直標記設定 (關鍵字, 線色, 標籤)
+_VLINE_SIGNALS = [
+    ("KD金叉",      "rgba(38,166,154,0.65)",  "▲ KD金叉"),
+    ("KD死叉",      "rgba(239,83,80,0.65)",   "▼ KD死叉"),
+    ("外投同步買進", "rgba(38,166,154,0.80)",  "▲ 外投買"),
+    ("外投同步拋售", "rgba(239,83,80,0.80)",   "▼ 外投拋"),
+    ("強勢買超",    "rgba(38,166,154,0.50)",  "▲ 強買"),
+    ("強勢賣超",    "rgba(239,83,80,0.50)",   "▼ 強賣"),
+    ("RSI超買",     "rgba(230,81,0,0.60)",    "RSI超買"),
+    ("RSI超賣",     "rgba(21,101,192,0.60)",  "RSI超賣"),
+]
+
 # ── 側邊欄 ───────────────────────────────────────────────────
 stock_map = load_stock_map(STOCKS_FILE)
 if not stock_map:
@@ -92,6 +134,9 @@ with st.sidebar:
     st.divider()
     days = st.slider("顯示天數", min_value=30, max_value=365, value=90, step=10)
     st.caption(f"資料來自 data/{stock_id}/")
+
+    # 近期訊號歷程（資料載入後填入，見下方）
+    _sidebar_signal_placeholder = st.empty()
 
 # ── 讀取資料 ─────────────────────────────────────────────────
 df   = load_analysis(stock_id)
@@ -126,6 +171,39 @@ if k_col:
 chip_col = col(df, "法人合計(張)", "法人合計")
 if chip_col and pd.notna(latest.get(chip_col)):
     c4.metric("法人合計", f"{latest[chip_col]:,.0f} 張")
+
+# ── 今日訊號 badge ────────────────────────────────────────────
+_sig_col = "訊號" if "訊號" in df.columns else None
+if _sig_col:
+    today_sig = latest.get(_sig_col, "")
+    st.markdown(
+        f'<div style="padding:6px 0 4px 0"><b>今日訊號：</b>{_badges_html(today_sig)}</div>',
+        unsafe_allow_html=True,
+    )
+    # 側邊欄近期訊號歷程
+    _sig_hist = (
+        df_show[[_sig_col]]
+        .loc[df_show[_sig_col].fillna("").str.strip() != ""]
+        .iloc[::-1]
+        .head(15)
+    )
+    if not _sig_hist.empty:
+        lines = ["**近期訊號歷程**"]
+        for date, row in _sig_hist.iterrows():
+            tags = [t.strip() for t in str(row[_sig_col]).split("|") if t.strip()]
+            tag_html = "".join(
+                f'<span style="background:{_sig_color(t)};color:#fff;'
+                f'padding:1px 6px;border-radius:8px;font-size:0.75em;margin:1px">{t}</span>'
+                for t in tags
+            )
+            lines.append(
+                f'<div style="margin-bottom:4px">'
+                f'<span style="font-size:0.78em;color:#aaa">{date.strftime("%m/%d")}</span> '
+                f'{tag_html}</div>'
+            )
+        _sidebar_signal_placeholder.markdown(
+            "\n".join(lines), unsafe_allow_html=True
+        )
 
 st.divider()
 
@@ -163,7 +241,23 @@ for ma_col, color, label in [(ma5, "#ff9800", "MA5"), (ma20, "#2196F3", "MA20"),
     if ma_col:
         fig1.add_trace(go.Scatter(x=df_show.index, y=df_show[ma_col], name=label,
             line=dict(color=color, width=1.2)))
-fig1.update_layout(height=420, xaxis_rangeslider_visible=False, margin=dict(t=20, b=20))
+
+# 強訊號垂直標記線
+if _sig_col:
+    for date_idx, row in df_show.iterrows():
+        sig_str = str(row.get(_sig_col, ""))
+        for kw, lc, anno in _VLINE_SIGNALS:
+            if kw in sig_str:
+                fig1.add_vline(
+                    x=date_idx, line_width=1.2, line_dash="dot", line_color=lc,
+                    annotation_text=anno,
+                    annotation_position="top",
+                    annotation_font_size=9,
+                    annotation_font_color=lc,
+                )
+                break  # 每日只標一條（最高優先）
+
+fig1.update_layout(height=460, xaxis_rangeslider_visible=False, margin=dict(t=30, b=20))
 st.plotly_chart(fig1, use_container_width=True)
 
 # ─────────────────────────────────────────────────────────────
